@@ -141,6 +141,7 @@ public class WalletApplicationServiceImpl implements ApplicationService {
                     break;
 
                 case 7 :
+                    System.out.println("goodbye");
                     exitApp = true ;
                     break;
 

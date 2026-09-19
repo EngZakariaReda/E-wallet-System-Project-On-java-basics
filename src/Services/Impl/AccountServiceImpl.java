@@ -142,6 +142,7 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public void showDetailsOfAccount(Account account) {
         System.out.println("Username: " + account.getUserName());
+        System.out.println("password: " + "*".repeat(account.getPassword().length()));
         System.out.println("Phone: " + account.getPhoneNumber());
         System.out.println("Balance: " + account.getBalance());
         System.out.println("Age: " + account.getAge());
