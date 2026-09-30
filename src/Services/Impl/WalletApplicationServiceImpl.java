@@ -1,4 +1,9 @@
 package Services.Impl;
+import Enums.*;
+import Exceptions.AccountNotExisted;
+import Exceptions.SamePassword;
+import Helper.InputHelper;
+import Helper.Validator;
 import Models.Account;
 import Models.WalletSystem;
 import Services.ApplicationService;
@@ -9,7 +14,8 @@ public class WalletApplicationServiceImpl implements ApplicationService {
 
    private Scanner scanner = new Scanner(System.in);
    private AccountServiceImpl accountService = new AccountServiceImpl();
-
+   private InputHelper inputHelper = new InputHelper(scanner);
+   private Validator validator = new Validator(accountService);
 
     @Override
     public void start() {
@@ -19,7 +25,7 @@ public class WalletApplicationServiceImpl implements ApplicationService {
         while (true){
             System.out.println("pls choose -------->");
             System.out.println("1.login     2.signUp        3.exit");
-            Integer choose = scanner.nextInt();
+            Integer choose = inputHelper.readInteger();
             Boolean isExit = false ;
 
             switch (choose){
@@ -56,17 +62,60 @@ public class WalletApplicationServiceImpl implements ApplicationService {
     }
 
     private void signUp(){
-        System.out.print("Enter username: ");
-        String userName = scanner.next();
+        String userName;
 
-        System.out.print("Enter password: ");
-        String password = scanner.next();
+        while (true) {
+            userName = inputHelper.readString("Enter username: ");
+            UsernameValidationStatus status =
+                    validator.isValidUsername(userName);
 
-        System.out.print("Enter phone number: ");
-        String phoneNumber = scanner.next();
+            if (status == UsernameValidationStatus.VALID) {
+                break;
+            }
 
-        System.out.print("Enter age: ");
-        Float age = scanner.nextFloat();
+            System.out.println(status.getMessage());
+        }
+
+        String password;
+
+        while (true) {
+            password = inputHelper.readString("Enter password: ");
+
+            PasswordValidationStatus status =
+                    validator.isValidPassword(password);
+
+            if (status == PasswordValidationStatus.VALID) {
+                break;
+            }
+
+            System.out.println(status.getMessage());
+        }
+
+        Float age;
+
+        while (true) {
+            age = inputHelper.readFloat("Enter age: ");
+
+            if (age >= 18) {
+                break;
+            }
+
+            System.out.println("Age must be at least 18.");
+        }
+
+        String phoneNumber;
+
+        while (true) {
+            phoneNumber = inputHelper.readString("Enter phone number: ");
+
+            PhoneValidationStatus status = validator.isValidPhone(phoneNumber);
+
+            if (status == PhoneValidationStatus.VALID) {
+                break;
+            }
+
+            System.out.println(status.getMessage());
+        }
 
         Account newAccount = new Account(userName , password ,phoneNumber ,age);
         newAccount = accountService.createAccount(newAccount);
@@ -80,27 +129,56 @@ public class WalletApplicationServiceImpl implements ApplicationService {
     }
 
     private void logIn(){
-        System.out.print("Enter username: ");
-        String userName = scanner.next();
+        String userName = null ;
+        String password = null ;
+        int invalidAttempts = 0 ;
 
-        System.out.print("Enter password: ");
-        String password = scanner.next();
+        while (invalidAttempts < 5) {
 
-        Account newAccount = new Account(userName , password);
-        newAccount = accountService.getAccountByUserNameAndPassword(newAccount);
+            while (invalidAttempts < 5){
+                userName = inputHelper.readString("Enter username: ");
 
-        if(newAccount == null){
-            System.out.println("email or password is not correct");
-        }else {
-            System.out.println("welcome to your account");
-            mainProfile(newAccount);
+                if (userName == null || userName.isBlank()) {
+                    System.out.println("Username cannot be empty.");
+                    invalidAttempts++ ;
+                    continue;
+                }
+
+                break;
+            }
+
+            while (invalidAttempts < 5) {
+                password = inputHelper.readString("Enter password: ");
+
+                if (password == null || password.isBlank()) {
+                    System.out.println("Password cannot be empty.");
+                    invalidAttempts++;
+                    continue;
+                }
+                break;
+            }
+
+            if (!(invalidAttempts < 5)){
+                break;
+            }
+
+            Account newAccount = new Account(userName , password);
+            newAccount = accountService.getAccountByUserNameAndPassword(newAccount);
+
+            if(newAccount == null){
+                System.out.println("userName or password is not correct");
+                invalidAttempts++;
+            }else {
+                System.out.println("welcome to your account");
+                mainProfile(newAccount);
+                return;
+            }
         }
+        System.out.println("Too many failed attempts. Please try again later.");
     }
 
     private void mainProfile(Account account) {
-
-        Account currentAccount = account ;
-        Integer numberOfAttempts = 0 ;
+        int numberOfAttempts = 0 ;
         while (true){
             System.out.println("pls choose -------->");
             System.out.println(
@@ -114,30 +192,30 @@ public class WalletApplicationServiceImpl implements ApplicationService {
             );
 
             Boolean exitApp = false ;
-            Integer chooseOperation = scanner.nextInt();
+            Integer chooseOperation = inputHelper.readInteger();
             switch (chooseOperation){
                 case 1 :
-                    currentAccount = accountService.depositToAccount(currentAccount);
+                    deposit(account);
                     break;
 
                 case 2 :
-                    currentAccount = accountService.withdrawFromAccount(currentAccount);
+                    withdraw(account);
                     break;
 
                 case 3 :
-                    accountService.transferFromAccountToAnother(currentAccount);
+                    transfer(account);
                     break;
 
                 case 4 :
-                    accountService.showBalanceOfAccount(currentAccount);
+                    showBalance(account);
                     break;
 
                 case 5 :
-                    accountService.showDetailsOfAccount(currentAccount);
+                    showBalanceDetails(account);
                     break;
 
                 case 6 :
-                    currentAccount = accountService.changePasswordOfAccount(currentAccount);
+                    changePassword(account);
                     break;
 
                 case 7 :
@@ -157,6 +235,116 @@ public class WalletApplicationServiceImpl implements ApplicationService {
 
             if (exitApp){
                 break;
+            }
+        }
+    }
+
+    private void deposit(Account account) {
+        double amount = inputHelper.readDouble("Please enter the amount: ");
+
+        DepositStatus depositStatus = accountService.deposit(account, amount);
+
+        if (depositStatus == DepositStatus.SUCCESS) {
+            Double  newAmountValue = getBalance(account) ;
+
+            System.out.println(depositStatus.getMessage()
+             + "the new balance is " + newAmountValue);
+            return;
+        }
+
+        System.out.println(depositStatus.getMessage());
+    }
+
+    private void withdraw(Account account) {
+        double amount = inputHelper.readDouble("Please enter the amount: ");
+
+        WithdrawStatus withdrawStatus = accountService.withdraw(account, amount);
+
+        if (withdrawStatus == WithdrawStatus.SUCCESS) {
+            Double  newAmountValue = getBalance(account) ;
+
+            System.out.println(withdrawStatus.getMessage()
+                    + "the new balance is " + newAmountValue);
+            return;
+        }
+
+        System.out.println(withdrawStatus.getMessage());
+    }
+
+    private void transfer(Account account) {
+        TransferStatus transferStatus ;
+
+        String receiverUserName = inputHelper.readString("please enter the userName of receiver account");
+        Account recieverAccount = accountService.getAccountByUsername(receiverUserName);
+
+        if(recieverAccount == null){
+            System.out.println(TransferStatus.RECEIVER_ACCOUNT_NOT_EXIST.getMessage());;
+            return;
+        }
+
+        double amount = inputHelper.readDouble("Please enter the amount: ");
+
+        transferStatus = accountService.transfer(account, recieverAccount , amount);
+
+        if (transferStatus == TransferStatus.SUCCESS) {
+            Double  newAmountValue = getBalance(account) ;
+
+            System.out.println(transferStatus.getMessage()
+                    + "the new balance is " + newAmountValue);
+            return;
+        }
+
+        System.out.println(transferStatus.getMessage());
+    }
+
+    private Double getBalance(Account account) {
+        try{
+            return accountService.showBalance(account);
+        } catch (AccountNotExisted e) {
+            System.out.println(e.getMessage());
+            return null;
+        }
+    }
+
+    private void showBalance(Account account) {
+        Double balance = getBalance(account);
+        System.out.println("your current balance is " + balance);
+    }
+
+    private void showBalanceDetails(Account account) {
+        try{
+            accountService.showDetails(account);
+        } catch (AccountNotExisted e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    private void changePassword(Account account) {
+        String oldPassword = inputHelper.readString("Please enter old password: ");
+
+        if (!account.getPassword().equals(oldPassword)) {
+            System.out.println("Incorrect password");
+            return;
+        }
+
+        while (true) {
+            String newPassword = inputHelper.readString("Enter new password: ");
+            PasswordValidationStatus status = validator.isValidPassword(newPassword);
+
+            if (status != PasswordValidationStatus.VALID) {
+                System.out.println(status.getMessage());
+                continue;
+            }
+
+            try {
+                accountService.changePassword(account, oldPassword, newPassword);
+                System.out.println("Password changed successfully");
+                return;
+            } catch (SamePassword e) {
+                System.out.println(e.getMessage());
+            } catch (AccountNotExisted e) {
+                System.out.println(e.getMessage());
+                return;
             }
         }
     }

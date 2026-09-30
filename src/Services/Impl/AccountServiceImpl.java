@@ -1,4 +1,9 @@
 package Services.Impl;
+import Enums.DepositStatus;
+import Enums.TransferStatus;
+import Enums.WithdrawStatus;
+import Exceptions.AccountNotExisted;
+import Exceptions.SamePassword;
 import Models.Account;
 import Models.WalletSystem;
 import Services.AccountService;
@@ -12,16 +17,14 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public Account createAccount(Account account) {
-        Boolean isAccountExisted = walletSystem.getAccounts().
-                stream()
-                .anyMatch(acc -> acc.getUserName().equals(account.getUserName()));
+        Boolean isExisted = isUserNameExists(account.getUserName());
 
-        if (isAccountExisted){
-            return null ;
+        if (!isExisted){
+            walletSystem.getAccounts().add(account);
+            return account;
         }
 
-        walletSystem.getAccounts().add(account);
-        return account;
+        return null ;
     }
 
     @Override
@@ -32,119 +35,137 @@ public class AccountServiceImpl implements AccountService {
                         && acc.getPassword().equals(account.getPassword()))
                 .findFirst();
 
-        if(existedAccount.isPresent()){
-            return existedAccount.get();
-        }else {
-            return null ;
-        }
+        return existedAccount.orElse(null);
     }
 
     @Override
-    public Account depositToAccount(Account account) {
-        System.out.println("enter the amount of money you want to deposit");
-        double amount = scanner.nextDouble();
+    public DepositStatus  deposit(Account account , Double amount) {
 
-        if (amount <= 0){
-            System.out.println("the amount you enter can not be deposited");
-            return account ;
+        Account isExisted = getAccountByUsername(account.getUserName());
+        if (isExisted == null){
+            return DepositStatus.ACCOUNT_NOT_EXIST ;
         }
 
-        Double newBalance = account.getBalance() + amount ;
-        account.setBalance(newBalance);
-        System.out.println("operation success now newBalance is " + newBalance);
-        return account ;
+        if (!checkAllowedAmount(amount)) {
+            return DepositStatus.INVALID_AMOUNT;
+        }
+
+        isExisted.setBalance(isExisted.getBalance() + amount);
+        return DepositStatus.SUCCESS ;
     }
 
     @Override
-    public Account withdrawFromAccount(Account account) {
-        System.out.println("enter the amount of money you want to withdraw");
-        double amount = scanner.nextDouble();
+    public WithdrawStatus  withdraw(Account account , Double amount) {
 
-        if (amount <= 0){
-            System.out.println("the amount you enter must be greater than 0");
-            return account ;
+        Account isExisted = getAccountByUsername(account.getUserName());
+        if (isExisted == null){
+            return WithdrawStatus.ACCOUNT_NOT_EXIST ;
         }
 
-        if (account.getBalance() < amount){
-            System.out.println("Insufficient balance");
-            return account ;
+        if (!checkAllowedAmount(amount)) {
+            return WithdrawStatus.INVALID_AMOUNT;
         }
 
-        Double newBalance = account.getBalance() - amount ;
-        account.setBalance(newBalance);
-        System.out.println("operation success now newBalance is " + newBalance);
-        return account ;
+        if (isExisted.getBalance() < amount){
+            return WithdrawStatus.INSUFFICIENT_BALANCE ;
+        }
+
+        isExisted.setBalance(isExisted.getBalance() - amount);
+        return WithdrawStatus.SUCCESS ;
     }
 
     @Override
-    public Account transferFromAccountToAnother(Account account) {
-        System.out.println("pls enter userName you want send to him");
-        String reciverUserName = scanner.next();
-
-        if ((account.getUserName().equals(reciverUserName))){
-            System.out.println("invalid operation");
-            return account ;
+    public TransferStatus transfer(Account sender, Account receiver, Double amount) {
+        Account isSenderExisted = getAccountByUsername(sender.getUserName());
+        if (isSenderExisted == null){
+            return TransferStatus.SENDER_ACCOUNT_NOT_EXIST ;
         }
 
-        Optional<Account> receiverAccount = walletSystem.getAccounts().
-                stream().
-                filter(acc -> acc.getUserName().equals(reciverUserName)).
-                findFirst();
-
-        if (!(receiverAccount.isPresent())){
-            System.out.println("this receiver account not existed");
-            return account ;
+        Account isReceiverExisted = getAccountByUsername(receiver.getUserName());
+        if (isReceiverExisted == null){
+            return TransferStatus.RECEIVER_ACCOUNT_NOT_EXIST ;
         }
 
-        System.out.println("enter the amount of money you want to transfer");
-        double amount = scanner.nextDouble();
-
-        if (amount <= 0){
-            System.out.println("the amount you enter must be greater than 0");
-            return account ;
+        if ((isSenderExisted.getUserName().equals(isReceiverExisted.getUserName()))){
+            return TransferStatus.SAME_ACCOUNT ;
         }
 
-        if (amount > account.getBalance()){
-            System.out.println("Insufficient balance");
-            return account ;
+        if (!checkAllowedAmount(amount)) {
+            return TransferStatus.INVALID_AMOUNT;
         }
 
-        account.setBalance(account.getBalance() - amount);
-        Account received = receiverAccount.get();
-        received.setBalance(received.getBalance() + amount);
-        System.out.println(walletSystem.getAccounts());
-        System.out.println("amount transfered successfully");
-        return account ;
+        if (isSenderExisted.getBalance() < amount){
+            return TransferStatus.INSUFFICIENT_BALANCE ;
+        }
+
+        isSenderExisted.setBalance(isSenderExisted.getBalance() - amount);
+        isReceiverExisted.setBalance(isReceiverExisted.getBalance() + amount);
+        return TransferStatus.SUCCESS;
     }
 
     @Override
-    public Account changePasswordOfAccount(Account account) {
-        System.out.println("pls enter old password");
-        String oldPassword = scanner.next();
+    public void changePassword(Account account , String oldPassword , String newPassword) throws AccountNotExisted , SamePassword{
+        Account isExisted = getAccountByUsername(account.getUserName());
 
-        if (!(account.getPassword().equals(oldPassword))){
-            System.out.println("incorrect password");
-            return account;
+        if (isExisted == null){
+            throw new AccountNotExisted("account not existed");
         }
 
-        System.out.println("pls enter new password");
-        String newPassword = scanner.next();
-        account.setPassword(newPassword);
-        System.out.println("password changed successfully");
-        return account ;
+        if (oldPassword.equals(newPassword)){
+            throw new SamePassword("old password equal to new password");
+        }
+
+        isExisted.setPassword(newPassword);
     }
 
     @Override
-    public void showBalanceOfAccount(Account account) {
-        System.out.println("your balance is " + account.getBalance());
+    public Double showBalance(Account account) throws AccountNotExisted{
+        Account isExisted = getAccountByUsername(account.getUserName());
+
+        if(isExisted == null){
+            throw new AccountNotExisted("account not existed");
+        }
+        return isExisted.getBalance();
     }
 
     @Override
-    public void showDetailsOfAccount(Account account) {
-        System.out.println("Username: " + account.getUserName());
-        System.out.println("password: " + "*".repeat(account.getPassword().length()));
-        System.out.println("Phone: " + account.getPhoneNumber());
-        System.out.println("Balance: " + account.getBalance());
-        System.out.println("Age: " + account.getAge());
+    public void showDetails(Account account) throws AccountNotExisted{
+        Account isExisted = getAccountByUsername(account.getUserName());
+        if(isExisted == null){
+            throw new AccountNotExisted("account not existed");
+        }
+
+        System.out.println("Username: " + isExisted.getUserName());
+        System.out.println("password: " + "*".repeat(isExisted.getPassword().length()));
+        System.out.println("Phone: " + isExisted.getPhoneNumber());
+        System.out.println("Balance: " + isExisted.getBalance());
+        System.out.println("Age: " + isExisted.getAge());
     }
+
+    @Override
+    public Account getAccountByUsername(String userName) {
+        Optional<Account> isExisted = walletSystem.getAccounts().stream()
+                .filter(acc -> acc.getUserName().equals(userName))
+                .findFirst();
+
+        return isExisted.orElse(null);
+    }
+
+    @Override
+    public Boolean checkAllowedAmount(Double value) {
+        return value != null && value >= 100 && value <= 12000;
+    }
+
+    @Override
+    public Boolean isUserNameExists(String userName) {
+        return walletSystem.getAccounts().stream()
+                .anyMatch(acc -> acc.getUserName().equals(userName));
+    }
+
+    @Override
+    public Boolean checkUniqueNumber(String phone) {
+        return walletSystem.getAccounts().stream()
+                .anyMatch(acc -> acc.getPhoneNumber().equals(phone));
+    }
+
 }
