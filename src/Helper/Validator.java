@@ -36,12 +36,12 @@ public class Validator {
         return UsernameValidationStatus.VALID;
     }
 
-    public PasswordValidationStatus isValidPassword(String password) {
+    public static PasswordValidationStatus isValidPassword(String password) {
         if (password == null || password.isBlank()) {
             return PasswordValidationStatus.INVALID_FORMAT;
         }
 
-        if (password.length() < 8) {
+        if (password.length() < 6) {
             return PasswordValidationStatus.TOO_SHORT;
         }
 
@@ -51,10 +51,6 @@ public class Validator {
 
         if (!password.matches(".*[A-Z].*")) {
             return PasswordValidationStatus.NO_UPPERCASE;
-        }
-
-        if (!password.matches(".*[a-z].*")) {
-            return PasswordValidationStatus.NO_LOWERCASE;
         }
 
         if (!password.matches(".*\\d.*")) {

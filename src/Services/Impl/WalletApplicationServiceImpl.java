@@ -1,7 +1,9 @@
 package Services.Impl;
 import Enums.*;
-import Exceptions.AccountNotExisted;
-import Exceptions.SamePassword;
+import Exceptions.AccountNotExistedException;
+import Exceptions.InvalidPasswordException;
+import Exceptions.NotAdminException;
+import Exceptions.SamePasswordException;
 import Helper.InputHelper;
 import Helper.Validator;
 import Models.Account;
@@ -12,21 +14,21 @@ import java.util.Scanner;
 
 public class WalletApplicationServiceImpl implements ApplicationService {
 
-   private Scanner scanner = new Scanner(System.in);
-   private AccountServiceImpl accountService = new AccountServiceImpl();
-   private InputHelper inputHelper = new InputHelper(scanner);
-   private Validator validator = new Validator(accountService);
+   private final Scanner scanner = new Scanner(System.in);
+   private final AccountServiceImpl accountService = new AccountServiceImpl();
+   private final InputHelper inputHelper = new InputHelper(scanner);
+   private final Validator validator = new Validator(accountService);
 
     @Override
     public void start() {
         System.out.println("welcome to " + WalletSystem.walletName);
 
-        Integer count = 0 ;
+        int count = 0 ;
         while (true){
             System.out.println("pls choose -------->");
             System.out.println("1.login     2.signUp        3.exit");
-            Integer choose = inputHelper.readInteger();
-            Boolean isExit = false ;
+            int choose = inputHelper.readInteger();
+            boolean isExit = false ;
 
             switch (choose){
                 case 1 :
@@ -169,8 +171,12 @@ public class WalletApplicationServiceImpl implements ApplicationService {
                 System.out.println("userName or password is not correct");
                 invalidAttempts++;
             }else {
-                System.out.println("welcome to your account");
-                mainProfile(newAccount);
+                if (newAccount.getActive()){
+                    System.out.println("welcome to your account");
+                    mainProfile(newAccount);
+                }else {
+                    System.out.println("your account is deactivated, please contact admin");
+                }
                 return;
             }
         }
@@ -182,17 +188,28 @@ public class WalletApplicationServiceImpl implements ApplicationService {
         while (true){
             System.out.println("pls choose -------->");
             System.out.println(
-                    "1.deposit   " +
-                            "2.withdraw  " +
+                    "1.Deposit   " +
+                            "2.Withdraw  " +
                             "3.Transfer   " +
-                            "4.show balance    " +
-                            "5.show details   " +
+                            "4.Show Balance    " +
+                            "5.Show Details   " +
                             "6.Change Password   " +
-                            "7.logout"
+                            "7.Logout"
             );
+            if (accountService.isAdmin(account)) {
+                System.out.println(
+                        "-------- ADMIN OPERATIONS --------\n" +
+                                "8.View All Accounts " +
+                                "9.View Account " +
+                                "10.Delete Account " +
+                                "11.Activate Account " +
+                                "12.Deactivate Account " +
+                                "13.View Transaction History Of Account"
+                );
+            }
 
-            Boolean exitApp = false ;
-            Integer chooseOperation = inputHelper.readInteger();
+            boolean exitApp = false ;
+            int chooseOperation = inputHelper.readInteger();
             switch (chooseOperation){
                 case 1 :
                     deposit(account);
@@ -211,30 +228,80 @@ public class WalletApplicationServiceImpl implements ApplicationService {
                     break;
 
                 case 5 :
-                    showBalanceDetails(account);
+                    showDetails(account);
                     break;
 
                 case 6 :
                     changePassword(account);
                     break;
 
-                case 7 :
+                case 7:
                     System.out.println("goodbye");
-                    exitApp = true ;
+                    return;
+
+                case 8:
+                    if (accountService.isAdmin(account)) {
+                        accountService.viewAllAccounts(account);
+                    }else {
+                        System.out.println("Please choose a valid number.");
+                        numberOfAttempts++;
+                    }
+                    break;
+
+                case 9:
+                    if (accountService.isAdmin(account)) {
+                        viewAccount(account);
+                    }else {
+                        System.out.println("Please choose a valid number.");
+                        numberOfAttempts++;
+                    }
+                    break;
+
+                case 10:
+                    if (accountService.isAdmin(account)) {
+                        deleteAccount(account);
+                    }else {
+                        System.out.println("Please choose a valid number.");
+                        numberOfAttempts++;
+                    }
+                    break;
+
+                case 11:
+                    if (accountService.isAdmin(account)) {
+                        activateAccount(account);
+                    }else {
+                        System.out.println("Please choose a valid number.");
+                        numberOfAttempts++;
+                    }
+                    break;
+
+                case 12:
+                    if (accountService.isAdmin(account)) {
+                        deactivateAccount(account);
+                    }else {
+                        System.out.println("Please choose a valid number.");
+                        numberOfAttempts++;
+                    }
+                    break;
+
+                case 13:
+                    if (accountService.isAdmin(account)) {
+                        viewTransactionHistory(account);
+                    }else {
+                        System.out.println("Please choose a valid number.");
+                        numberOfAttempts++;
+                    }
                     break;
 
                 default:
-                    numberOfAttempts += 1;
-                    System.out.println("pls choose valid number from 1 to 7");
+                    numberOfAttempts++;
+                    System.out.println("Please choose a valid number.");
                     break;
-            }
 
-            if (numberOfAttempts == 4){
-                break;
             }
-
-            if (exitApp){
-                break;
+            if (numberOfAttempts >= 4) {
+                System.out.println("Too many invalid attempts.");
+                return;
             }
         }
     }
@@ -273,8 +340,18 @@ public class WalletApplicationServiceImpl implements ApplicationService {
 
     private void transfer(Account account) {
         TransferStatus transferStatus ;
+        String receiverUserName = null ;
 
-        String receiverUserName = inputHelper.readString("please enter the userName of receiver account");
+        while (true) {
+            receiverUserName = inputHelper.readString("please enter the userName of receiver account");
+
+            if (receiverUserName == null || receiverUserName.isBlank()) {
+                System.out.println("please enter a valid name");
+                continue;
+            }
+            break;
+        }
+
         Account recieverAccount = accountService.getAccountByUsername(receiverUserName);
 
         if(recieverAccount == null){
@@ -300,7 +377,7 @@ public class WalletApplicationServiceImpl implements ApplicationService {
     private Double getBalance(Account account) {
         try{
             return accountService.showBalance(account);
-        } catch (AccountNotExisted e) {
+        } catch (AccountNotExistedException e) {
             System.out.println(e.getMessage());
             return null;
         }
@@ -308,13 +385,16 @@ public class WalletApplicationServiceImpl implements ApplicationService {
 
     private void showBalance(Account account) {
         Double balance = getBalance(account);
+        if (balance == null){
+            return;
+        }
         System.out.println("your current balance is " + balance);
     }
 
-    private void showBalanceDetails(Account account) {
+    private void showDetails(Account account) {
         try{
             accountService.showDetails(account);
-        } catch (AccountNotExisted e) {
+        } catch (AccountNotExistedException e) {
             System.out.println(e.getMessage());
         }
     }
@@ -340,13 +420,60 @@ public class WalletApplicationServiceImpl implements ApplicationService {
                 accountService.changePassword(account, oldPassword, newPassword);
                 System.out.println("Password changed successfully");
                 return;
-            } catch (SamePassword e) {
+            } catch (SamePasswordException | InvalidPasswordException e) {
                 System.out.println(e.getMessage());
-            } catch (AccountNotExisted e) {
+            } catch (AccountNotExistedException e) {
                 System.out.println(e.getMessage());
                 return;
             }
         }
     }
 
+    private void deactivateAccount(Account account) {
+        String userName = inputHelper.readUsername();
+        try {
+            accountService.deactivateAccount(account, userName);
+            System.out.println("account deactivated successfully");
+        } catch (AccountNotExistedException | NotAdminException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    private void deleteAccount(Account account) {
+        String userName = inputHelper.readUsername();
+        try {
+            accountService.deleteAccount(account, userName);
+            System.out.println("account deleted successfully");
+        } catch (AccountNotExistedException | NotAdminException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    private void activateAccount(Account account) {
+        String userName = inputHelper.readUsername();
+        try {
+            accountService.activateAccount(account, userName);
+            System.out.println("account activated successfully");
+        } catch (AccountNotExistedException | NotAdminException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    private void viewTransactionHistory(Account account) {
+        String userName = inputHelper.readUsername();
+        try {
+            accountService.viewTransactionHistory(account, userName);
+        } catch (AccountNotExistedException | NotAdminException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    private void viewAccount(Account account) {
+        String userName = inputHelper.readUsername();
+        try {
+            accountService.viewAccount(account, userName);
+        } catch (AccountNotExistedException | NotAdminException e) {
+            System.out.println(e.getMessage());
+        }
+    }
 }

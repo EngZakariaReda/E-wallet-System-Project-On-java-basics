@@ -55,4 +55,21 @@ public class InputHelper {
             }
         }
     };
+
+    public String readUsername() {
+
+        while (true) {
+
+            String userName = readString(
+                    "Enter username of the account: "
+            );
+
+            if (userName == null || userName.isBlank()) {
+                System.out.println("Username cannot be empty");
+                continue;
+            }
+
+            return userName;
+        }
+    }
 }

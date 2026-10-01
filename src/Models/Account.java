@@ -1,11 +1,17 @@
 package Models;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Account {
     private String userName;
     private String password;
     private String phoneNumber;
     private Double balance;
     private Float age;
+    private Boolean isAdmin;
+    private Boolean isActive;
+    private List<Transaction> transactions = new ArrayList<>();
 
     public Account(String userName, String password, String phoneNumber, Float age) {
         this.userName = userName;
@@ -13,6 +19,8 @@ public class Account {
         this.phoneNumber = phoneNumber;
         this.balance = 0.0;
         this.age = age;
+        this.isAdmin = false;
+        this.isActive = true;
     }
 
     public Account(String userName, String password) {
@@ -60,10 +68,34 @@ public class Account {
         this.balance = balance;
     }
 
+    public Boolean getAdmin() {
+        return isAdmin;
+    }
+
+    public void setAdmin(Boolean admin) {
+        isAdmin = admin;
+    }
+
+    public Boolean getActive() {
+        return isActive;
+    }
+
+    public void setActive(Boolean active) {
+        isActive = active;
+    }
+
+    public List<Transaction> getTransactions() {
+        return transactions;
+    }
+
+    public void setTransactions(List<Transaction> transactions) {
+        this.transactions = transactions;
+    }
+
     @Override
     public String toString() {
         return "Account{" + "userName='" + userName + '\'' +
-                ", password='" + password + '\'' + ", phoneNumber='" +
-                phoneNumber + '\'' + ", balance=" + balance + ", age=" + age + '}';
+                ", password='" +  "*".repeat(password.length()) + '\'' + ", phoneNumber='" +
+                phoneNumber + '\'' + ", balance=" + balance + ", age=" + age + '}' + "active" + isActive;
     }
 }
