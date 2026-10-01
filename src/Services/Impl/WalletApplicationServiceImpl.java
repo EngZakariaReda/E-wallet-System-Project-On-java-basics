@@ -1,9 +1,6 @@
 package Services.Impl;
 import Enums.*;
-import Exceptions.AccountNotExistedException;
-import Exceptions.InvalidPasswordException;
-import Exceptions.NotAdminException;
-import Exceptions.SamePasswordException;
+import Exceptions.*;
 import Helper.InputHelper;
 import Helper.Validator;
 import Models.Account;
@@ -434,7 +431,7 @@ public class WalletApplicationServiceImpl implements ApplicationService {
         try {
             accountService.deactivateAccount(account, userName);
             System.out.println("account deactivated successfully");
-        } catch (AccountNotExistedException | NotAdminException e) {
+        } catch (AccountNotExistedException | NotAdminException | InvalidActionOnAdminException e) {
             System.out.println(e.getMessage());
         }
     }
@@ -444,7 +441,7 @@ public class WalletApplicationServiceImpl implements ApplicationService {
         try {
             accountService.deleteAccount(account, userName);
             System.out.println("account deleted successfully");
-        } catch (AccountNotExistedException | NotAdminException e) {
+        } catch (AccountNotExistedException | NotAdminException | InvalidActionOnAdminException e) {
             System.out.println(e.getMessage());
         }
     }
